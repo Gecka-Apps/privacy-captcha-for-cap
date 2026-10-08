@@ -2,6 +2,14 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Changed
+
+- **The status panel shows the key's protocol and the figure that sizes it.** The Difficulty card read `difficulty`, `challengeCount` and `saltSize` from the key config whatever the protocol, so a key created by Cap Standalone 3.1 (hashwx by default) displayed "4 · 80 challenges · 32-byte salt" while the browser actually computes `hashwxDifficulty` expected hashes, one million by default. The sha256-pow figures are still stored on such a key, so nothing looked wrong. `Status\KeyProtocol` reads the config once and resolves the protocol (`sha256-pow`, `hashwx`, `rsw`; a pre-3.1 key with no `protocol` field is read from its `rsw` flag) together with its figure. The card shows that figure and leads its detail line with the protocol name.
+- **"Test connection" reports the key's protocol and, with the WASM source on the Cap server, checks that the server serves the solver that protocol needs.** The widget has no fallback for a solver it cannot load: Standalone answers 503 for `/assets/hashwx.wasm` when its pinned `WASM_VERSION` predates `@cap.js/wasm` 0.0.8, and 404 for every asset when `ENABLE_ASSETS_SERVER` is off. In both cases siteverify and the stats keep working, so the forms are the first thing to fail. The test now fetches the file and, when the status is not 200, says which file, which status, and the two ways out (a `WASM_VERSION` that ships the file, or the bundled source). `Status\ConnectionCheck` carries the whole test so it runs under Pest; `Status\SolverProbe` wraps the request. Verified against Cap Standalone 3.1.14 with a default (hashwx) key and a sha256-pow key: bundled source (login solved and accepted on wp-login.php with each key, panel and dashboard widget showing "1,000,000 · hashwx" and "4 · sha256-pow · 80 challenges · 32-byte salt"), Cap-server source with `WASM_VERSION=0.0.8` (solver reported as served), `WASM_VERSION=0.0.7` (HTTP 503 reported, and the login widget indeed never produces a token in that state) and `ENABLE_ASSETS_SERVER=false` (HTTP 404 reported).
+- `tests/bootstrap.php` gains a `wp_remote_get` stub keyed by URL fragment, since one connection check issues two requests that must answer differently, and a `wp_remote_retrieve_response_code` stub.
+
 ## [1.5.0] - 2026-09-25
 
 ### Added
