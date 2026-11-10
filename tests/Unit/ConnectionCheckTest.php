@@ -235,7 +235,7 @@ it('accepts an isolated frame on a key that only reports', function (): void {
     expect(capCheck($settings)->run()->success)->toBeTrue();
 });
 
-it('warns when the key wants a press that the display mode never gives', function (): void {
+it('says that forms fall back to inline when the key wants a press the display mode never gives', function (): void {
     $settings = capConfigureConnection(['display_mode' => Settings::MODE_FLOATING]);
     $GLOBALS['__cap_remote_get_responses'] = [
         '/server/keys/' => capKeyResponse(['protocol' => 'hashwx', 'behavior' => 'block', 'requireInteraction' => true]),
@@ -245,7 +245,7 @@ it('warns when the key wants a press that the display mode never gives', functio
 
     expect($result->success)->toBeTrue()
         ->and($result->warnings)->toHaveCount(1)
-        ->and($result->warnings[0])->toContain('requires a press on the widget');
+        ->and($result->warnings[0])->toContain('every form shows the inline widget instead');
 });
 
 it('names the key protocol and skips the solver probe with the bundled solvers', function (): void {

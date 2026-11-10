@@ -9,6 +9,7 @@ use ZirkelDesign\CapCaptcha\Status\SecretProbe;
 use ZirkelDesign\CapCaptcha\Status\SolverProbe;
 use ZirkelDesign\CapCaptcha\Status\StatsClient;
 use ZirkelDesign\CapCaptcha\Status\StatusPanel;
+use ZirkelDesign\CapCaptcha\Status\StoredKeyPolicy;
 
 class Settings
 {
@@ -401,7 +402,10 @@ class Settings
                                 <option value="<?php echo esc_attr(self::MODE_PROGRAMMATIC); ?>" <?php selected($v['display_mode'], self::MODE_PROGRAMMATIC); ?>><?php echo esc_html__('Programmatic — solves silently in the background (no user interaction)', 'privacy-captcha-for-cap'); ?></option>
                             </select>
                             <p class="description"><?php echo esc_html__('Per-form integrations can override this default.', 'privacy-captcha-for-cap'); ?></p>
-                            <p class="description"><?php echo esc_html__('Floating and programmatic solve without a press on the widget. A site key that scores behavior and requires an interaction rejects them.', 'privacy-captcha-for-cap'); ?></p>
+                            <p class="description"><?php echo esc_html__('Floating and programmatic solve without a press on the widget. A site key that scores behavior and requires an interaction rejects them, so every form then shows the inline widget.', 'privacy-captcha-for-cap'); ?></p>
+                            <?php if ($this->isInlineForced()) { ?>
+                                <p class="description"><strong><?php echo esc_html__('The site key requires a press on the widget: every form shows the inline widget, whatever is chosen here or on a form.', 'privacy-captcha-for-cap'); ?></strong></p>
+                            <?php } ?>
                         </td>
                     </tr>
                 </table>
@@ -828,7 +832,31 @@ class Settings
         return defined('CAP_CAPTCHA_ADMIN_API_KEY') && is_string(\CAP_CAPTCHA_ADMIN_API_KEY) && \CAP_CAPTCHA_ADMIN_API_KEY !== '';
     }
 
+    /**
+     * The display mode forms are rendered in: the configured one, unless the
+     * site key demands a press on the widget.
+     */
     public function getDisplayMode(): string
+    {
+        return $this->enforceDisplayMode($this->getConfiguredDisplayMode());
+    }
+
+    /**
+     * Inline when the site key requires a press on the widget, which the
+     * floating and programmatic modes never give: the Cap server rejects
+     * every solve from them. The mode as given otherwise.
+     */
+    public function enforceDisplayMode(string $mode): string
+    {
+        return $this->isInlineForced() ? self::MODE_INLINE : $mode;
+    }
+
+    public function isInlineForced(): bool
+    {
+        return (bool) apply_filters('cap_captcha_force_inline', (new StoredKeyPolicy)->requiresInteraction());
+    }
+
+    public function getConfiguredDisplayMode(): string
     {
         $mode = $this->get('display_mode');
 

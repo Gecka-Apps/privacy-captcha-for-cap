@@ -176,8 +176,8 @@ final class ConnectionCheck
 
         $warnings = [];
 
-        if ($policy->requiresInteraction && $this->settings->getDisplayMode() !== Settings::MODE_INLINE) {
-            $warnings[] = __('The key requires a press on the widget, which the floating and programmatic display modes never give: forms in those modes fail. Use the inline mode.', 'privacy-captcha-for-cap');
+        if ($policy->requiresInteraction && $this->settings->getConfiguredDisplayMode() !== Settings::MODE_INLINE) {
+            $warnings[] = __('The key requires a press on the widget, which the floating and programmatic display modes never give: every form shows the inline widget instead.', 'privacy-captcha-for-cap');
         }
 
         $readable = $this->stats->siteKeyCount();
