@@ -4,9 +4,9 @@ declare(strict_types=1);
 
 namespace ZirkelDesign\CapCaptcha;
 
+use ZirkelDesign\CapCaptcha\Status\AssetProbe;
 use ZirkelDesign\CapCaptcha\Status\ConnectionCheck;
 use ZirkelDesign\CapCaptcha\Status\SecretProbe;
-use ZirkelDesign\CapCaptcha\Status\SolverProbe;
 use ZirkelDesign\CapCaptcha\Status\StatsClient;
 use ZirkelDesign\CapCaptcha\Status\StatusPanel;
 
@@ -27,6 +27,10 @@ class Settings
     public const WASM_BUNDLED = 'bundled';
 
     public const WASM_CAP_SERVER = 'cap_server';
+
+    public const WIDGET_BUNDLED = 'bundled';
+
+    public const WIDGET_CAP_SERVER = 'cap_server';
 
     public const CF7_AUTOMATIC = 'automatic';
 
@@ -122,7 +126,7 @@ class Settings
         // phpcs:ignore WordPress.Security.ValidatedSanitizedInput.InputNotSanitized -- sanitize() validates each field.
         $settings = isset($_POST[self::OPTION_KEY]) ? $this->withSubmitted(wp_unslash($_POST[self::OPTION_KEY])) : $this;
 
-        $result = (new ConnectionCheck($settings, new StatsClient($settings), new SolverProbe, new SecretProbe))->run();
+        $result = (new ConnectionCheck($settings, new StatsClient($settings), new AssetProbe, new SecretProbe))->run();
 
         if (! $result->success) {
             wp_send_json_error(['message' => $result->message]);
@@ -185,6 +189,11 @@ class Settings
             $wasm = self::WASM_BUNDLED;
         }
 
+        $widget = (string) ($input['widget_source'] ?? self::WIDGET_BUNDLED);
+        if (! in_array($widget, [self::WIDGET_BUNDLED, self::WIDGET_CAP_SERVER], true)) {
+            $widget = self::WIDGET_BUNDLED;
+        }
+
         // A card whose plugin is inactive renders disabled, and disabled inputs
         // are not submitted — so reading the POST alone would silently switch
         // that integration off on the next save. Someone who deactivates
@@ -240,6 +249,7 @@ class Settings
             'admin_api_key' => $adminApiKey,
             'display_mode' => $mode,
             'wasm_source' => $wasm,
+            'widget_source' => $widget,
             'isolate_frame' => ! empty($input['isolate_frame']),
             'fail_open' => ! empty($input['fail_open']),
             'show_admin_notices' => ! empty($input['show_admin_notices']),
@@ -421,6 +431,22 @@ class Settings
                                     <?php echo esc_html__('Cap server: load from your endpoint under /assets/', 'privacy-captcha-for-cap'); ?>
                                 </label>
                             </fieldset>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php echo esc_html__('Widget script', 'privacy-captcha-for-cap'); ?></th>
+                        <td>
+                            <fieldset>
+                                <label>
+                                    <input type="radio" name="<?php echo esc_attr(self::OPTION_KEY); ?>[widget_source]" value="<?php echo esc_attr(self::WIDGET_BUNDLED); ?>" <?php checked($v['widget_source'], self::WIDGET_BUNDLED); ?>>
+                                    <?php echo esc_html__('Bundled: load from this plugin (recommended)', 'privacy-captcha-for-cap'); ?>
+                                </label><br>
+                                <label>
+                                    <input type="radio" name="<?php echo esc_attr(self::OPTION_KEY); ?>[widget_source]" value="<?php echo esc_attr(self::WIDGET_CAP_SERVER); ?>" <?php checked($v['widget_source'], self::WIDGET_CAP_SERVER); ?>>
+                                    <?php echo esc_html__('Cap server: load from your endpoint under /assets/', 'privacy-captcha-for-cap'); ?>
+                                </label>
+                            </fieldset>
+                            <p class="description"><?php echo esc_html__('From the Cap server, the widget is the version set on that server, and JavaScript from that server runs on your pages. It needs Widget files turned on in the Cap dashboard.', 'privacy-captcha-for-cap'); ?></p>
                         </td>
                     </tr>
                     <tr>
@@ -1007,6 +1033,35 @@ class Settings
     }
 
     /**
+     * Whether the pages load the widget script from the Cap server's /assets/
+     * route rather than the copy bundled with the plugin. Without an endpoint
+     * there is nowhere to load it from, and the bundled copy applies.
+     */
+    public function isWidgetFromCapServer(): bool
+    {
+        return (string) ($this->getAll()['widget_source'] ?? self::WIDGET_BUNDLED) === self::WIDGET_CAP_SERVER
+            && $this->getEndpointBase() !== '';
+    }
+
+    public function getWidgetScriptUrl(): string
+    {
+        return $this->isWidgetFromCapServer()
+            ? $this->getEndpointBase().'assets/widget.js'
+            : CAP_CAPTCHA_URL.'assets/js/vendor/cap-widget.js';
+    }
+
+    /**
+     * The add-on that opens the widget from a trigger button. It ships with
+     * the widget and has to come from the same place.
+     */
+    public function getFloatingScriptUrl(): string
+    {
+        return $this->isWidgetFromCapServer()
+            ? $this->getEndpointBase().'assets/floating.js'
+            : CAP_CAPTCHA_URL.'assets/js/vendor/cap-widget.floating.js';
+    }
+
+    /**
      * Whether the widget runs the Cap server's instrumentation script in a
      * frame cut off from the page, rather than one that shares its origin.
      */
@@ -1083,6 +1138,7 @@ class Settings
             'admin_api_key' => '',
             'display_mode' => self::MODE_INLINE,
             'wasm_source' => self::WASM_BUNDLED,
+            'widget_source' => self::WIDGET_BUNDLED,
             'isolate_frame' => false,
             'fail_open' => false,
             'show_admin_notices' => true,

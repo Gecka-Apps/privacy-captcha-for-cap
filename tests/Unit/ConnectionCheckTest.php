@@ -3,9 +3,9 @@
 declare(strict_types=1);
 
 use ZirkelDesign\CapCaptcha\Settings;
+use ZirkelDesign\CapCaptcha\Status\AssetProbe;
 use ZirkelDesign\CapCaptcha\Status\ConnectionCheck;
 use ZirkelDesign\CapCaptcha\Status\SecretProbe;
-use ZirkelDesign\CapCaptcha\Status\SolverProbe;
 use ZirkelDesign\CapCaptcha\Status\StatsClient;
 
 beforeEach(function (): void {
@@ -64,7 +64,7 @@ function capKeyResponse(array $config): array
 
 function capCheck(Settings $settings): ConnectionCheck
 {
-    return new ConnectionCheck($settings, new StatsClient($settings), new SolverProbe, new SecretProbe);
+    return new ConnectionCheck($settings, new StatsClient($settings), new AssetProbe, new SecretProbe);
 }
 
 it('fails before any request when the endpoint, site key or secret is missing', function (): void {
@@ -107,6 +107,30 @@ it('fails when the endpoint is some other website', function (): void {
 
     expect($result->success)->toBeFalse()
         ->and($result->message)->toBe('The endpoint did not answer like a Cap server (HTTP 200). Check the endpoint URL.');
+});
+
+it('fails when the pages load the widget from a Cap server that does not serve it', function (): void {
+    $settings = capConfigureConnection(['widget_source' => Settings::WIDGET_CAP_SERVER]);
+    $GLOBALS['__cap_remote_get_responses'] = [
+        '/assets/widget.js' => ['response' => ['code' => 404], 'body' => 'Not found.'],
+    ];
+
+    $result = capCheck($settings)->run();
+
+    expect($result->success)->toBeFalse()
+        ->and($result->message)->toContain('does not serve widget.js (HTTP 404)');
+});
+
+it('asks the Cap server for the widget script the pages load from it', function (): void {
+    $settings = capConfigureConnection(['widget_source' => Settings::WIDGET_CAP_SERVER]);
+    $GLOBALS['__cap_remote_get_responses'] = [
+        '/server/keys/' => capKeyResponse(['protocol' => 'hashwx']),
+    ];
+
+    $result = capCheck($settings)->run();
+
+    expect($result->success)->toBeTrue()
+        ->and($GLOBALS['__cap_remote_get_requests'][0]['url'])->toBe('https://cap.example.test/assets/widget.js');
 });
 
 it('passes without an API key and says the statistics stay off', function (): void {
@@ -201,6 +225,15 @@ it('fails when the frame is isolated on a key that blocks one interaction signal
     ];
 
     expect(capCheck($settings)->run()->success)->toBeFalse();
+});
+
+it('says that isolation protects nothing once the widget itself comes from the Cap server', function (): void {
+    $settings = capConfigureConnection(['admin_api_key' => '', 'isolate_frame' => true, 'widget_source' => Settings::WIDGET_CAP_SERVER]);
+
+    $result = capCheck($settings)->run();
+
+    expect($result->success)->toBeTrue()
+        ->and($result->warnings[0])->toContain('isolating the Cap check protects nothing');
 });
 
 it('does not blame the API key for an answer that is not from Cap', function (): void {

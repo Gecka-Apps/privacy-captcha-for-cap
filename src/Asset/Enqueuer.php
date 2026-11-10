@@ -53,12 +53,9 @@ final class Enqueuer
         }
         $this->coreEnqueued = true;
 
-        $src = (string) apply_filters(
-            'cap_captcha_widget_src',
-            CAP_CAPTCHA_URL.'assets/js/vendor/cap-widget.js'
-        );
+        $src = (string) apply_filters('cap_captcha_widget_src', $this->settings->getWidgetScriptUrl());
 
-        wp_enqueue_script_module(self::WIDGET_MODULE_ID, $src, [], CAP_CAPTCHA_VERSION);
+        wp_enqueue_script_module(self::WIDGET_MODULE_ID, $src, [], $this->widgetVersion());
 
         $styleSrc = (string) apply_filters(
             'cap_captcha_style_src',
@@ -77,12 +74,9 @@ final class Enqueuer
         }
         $this->floatingEnqueued = true;
 
-        $src = (string) apply_filters(
-            'cap_captcha_floating_src',
-            CAP_CAPTCHA_URL.'assets/js/vendor/cap-widget.floating.js'
-        );
+        $src = (string) apply_filters('cap_captcha_floating_src', $this->settings->getFloatingScriptUrl());
 
-        wp_enqueue_script_module(self::FLOATING_MODULE_ID, $src, [], CAP_CAPTCHA_VERSION);
+        wp_enqueue_script_module(self::FLOATING_MODULE_ID, $src, [], $this->widgetVersion());
 
         $autosubmitSrc = (string) apply_filters(
             'cap_captcha_floating_autosubmit_src',
@@ -105,6 +99,16 @@ final class Enqueuer
         );
 
         wp_enqueue_script_module(self::PROGRAMMATIC_MODULE_ID, $src, [], CAP_CAPTCHA_VERSION);
+    }
+
+    /**
+     * The cache-busting version of the widget scripts. The Cap server swaps
+     * the files it serves on its own schedule, so a script from there carries
+     * no version of the plugin.
+     */
+    private function widgetVersion(): ?string
+    {
+        return $this->settings->isWidgetFromCapServer() ? null : CAP_CAPTCHA_VERSION;
     }
 
     /**

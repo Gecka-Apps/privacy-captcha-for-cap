@@ -12,12 +12,12 @@ use ZirkelDesign\CapCaptcha\Settings;
  * It runs on the settings it is given, which the button fills from the form
  * as it stands, saved or not.
  *
- * Forms depend on three things, checked in this order: the Cap server accepts
- * the site key and its secret, the key's rules are ones the plugin's settings
- * can satisfy, and the widget can load the solver the key's protocol needs.
- * The first needs no API key. The other two read the key through the API, so
- * without an API key the check passes on the secret alone and says what it
- * could not look at.
+ * Forms depend on four things, checked in this order: the Cap server accepts
+ * the site key and its secret, the pages can load the widget script, the
+ * key's rules are ones the plugin's settings can satisfy, and the widget can
+ * load the solver the key's protocol needs. The first two need no API key.
+ * The other two read the key through the API, so without an API key the
+ * check passes on the first two and says what it could not look at.
  *
  * A solver the widget cannot load has no fallback: when the WASM source is
  * the Cap server and that server does not serve the file, every protected
@@ -28,7 +28,7 @@ final class ConnectionCheck
     public function __construct(
         private readonly Settings $settings,
         private readonly StatsClient $stats,
-        private readonly SolverProbe $solvers,
+        private readonly AssetProbe $assets,
         private readonly SecretProbe $secret,
     ) {}
 
@@ -48,9 +48,28 @@ final class ConnectionCheck
             return ConnectionCheckResult::failed($this->secretRefused($refused));
         }
 
+        $warnings = [];
+
+        if ($this->settings->isWidgetFromCapServer()) {
+            $status = $this->assets->status($this->settings->getWidgetScriptUrl());
+
+            if ($status !== 200) {
+                return ConnectionCheckResult::failed(sprintf(
+                    /* translators: 1: script file name, e.g. "widget.js", 2: "HTTP 404" or "no response" */
+                    __('The Cap server accepts the site key and secret key, but does not serve %1$s (%2$s). No form can show the CAPTCHA without it: turn on Widget files in the Cap dashboard, or switch the widget script to Bundled.', 'privacy-captcha-for-cap'),
+                    basename($this->settings->getWidgetScriptUrl()),
+                    (new RequestFailure($status))->describe()
+                ));
+            }
+
+            if ($this->settings->isFrameIsolated()) {
+                $warnings[] = __('The widget script comes from the Cap server, so its JavaScript already runs on the page: isolating the Cap check protects nothing.', 'privacy-captcha-for-cap');
+            }
+        }
+
         return $this->settings->getAdminApiKey() === ''
-            ? $this->withoutApiKey()
-            : $this->withApiKey();
+            ? $this->withoutApiKey($warnings)
+            : $this->withApiKey($warnings);
     }
 
     private function secretRefused(RequestFailure $failure): string
@@ -82,10 +101,13 @@ final class ConnectionCheck
         );
     }
 
-    private function withoutApiKey(): ConnectionCheckResult
+    /**
+     * @param  list<string>  $warnings
+     */
+    private function withoutApiKey(array $warnings): ConnectionCheckResult
     {
         $connected = __('Connected — the Cap server accepts the site key and secret key', 'privacy-captcha-for-cap');
-        $warnings = [__('No API key: the status panel and the dashboard statistics stay off.', 'privacy-captcha-for-cap')];
+        $warnings[] = __('No API key: the status panel and the dashboard statistics stay off.', 'privacy-captcha-for-cap');
 
         if (! $this->settings->isWasmFromCapServer()) {
             return ConnectionCheckResult::ok($connected, $warnings);
@@ -96,7 +118,7 @@ final class ConnectionCheck
         $missing = [];
         foreach ([KeyProtocol::HASHWX, KeyProtocol::SHA256] as $name) {
             $protocol = KeyProtocol::fromConfig(['protocol' => $name]);
-            $status = $this->solvers->status($this->solverUrl($protocol));
+            $status = $this->assets->status($this->solverUrl($protocol));
             if ($status !== 200) {
                 $missing[] = [$protocol, $status];
             }
@@ -119,7 +141,10 @@ final class ConnectionCheck
         return ConnectionCheckResult::ok($connected, $warnings);
     }
 
-    private function withApiKey(): ConnectionCheckResult
+    /**
+     * @param  list<string>  $warnings
+     */
+    private function withApiKey(array $warnings): ConnectionCheckResult
     {
         $stats = $this->stats->read();
 
@@ -160,7 +185,7 @@ final class ConnectionCheck
         }
 
         if ($this->settings->isWasmFromCapServer()) {
-            $status = $this->solvers->status($this->solverUrl($protocol));
+            $status = $this->assets->status($this->solverUrl($protocol));
 
             if ($status !== 200) {
                 return ConnectionCheckResult::failed($this->solverMissing($connected, $protocol, $status));
@@ -173,8 +198,6 @@ final class ConnectionCheck
                 $protocol->solverFile()
             );
         }
-
-        $warnings = [];
 
         if ($policy->requiresInteraction && $this->settings->getDisplayMode() !== Settings::MODE_INLINE) {
             $warnings[] = __('The key requires a press on the widget, which the floating and programmatic display modes never give: forms in those modes fail. Use the inline mode.', 'privacy-captcha-for-cap');
