@@ -217,6 +217,7 @@ class Settings
             'admin_api_key' => $adminApiKey,
             'display_mode' => $mode,
             'wasm_source' => $wasm,
+            'isolate_frame' => ! empty($input['isolate_frame']),
             'fail_open' => ! empty($input['fail_open']),
             'show_admin_notices' => ! empty($input['show_admin_notices']),
             'integrations' => $integrations,
@@ -396,6 +397,16 @@ class Settings
                                     <?php echo esc_html__('Cap server: load from your endpoint under /assets/', 'privacy-captcha-for-cap'); ?>
                                 </label>
                             </fieldset>
+                        </td>
+                    </tr>
+                    <tr>
+                        <th scope="row"><?php echo esc_html__('Cap check', 'privacy-captcha-for-cap'); ?></th>
+                        <td>
+                            <label>
+                                <input type="checkbox" name="<?php echo esc_attr(self::OPTION_KEY); ?>[isolate_frame]" value="1" <?php checked($v['isolate_frame']); ?>>
+                                <?php echo esc_html__('Isolate the Cap check from the page', 'privacy-captcha-for-cap'); ?>
+                            </label>
+                            <p class="description"><?php echo esc_html__('The widget tells browsers from bots with a script the Cap server sends, which runs with the same rights as the page it is on. Turn this on when the Cap server is operated by a third party: the script then runs in a frame that cannot read the page. Site keys that block on behavior or on automated interactions reject an isolated check.', 'privacy-captcha-for-cap'); ?></p>
                         </td>
                     </tr>
                 </table>
@@ -971,6 +982,15 @@ class Settings
     }
 
     /**
+     * Whether the widget runs the Cap server's instrumentation script in a
+     * frame cut off from the page, rather than one that shares its origin.
+     */
+    public function isFrameIsolated(): bool
+    {
+        return (bool) apply_filters('cap_captcha_isolate_frame', ! empty($this->getAll()['isolate_frame']));
+    }
+
+    /**
      * Whether the widget loads its solvers from the Cap server's /assets/
      * route rather than from the copies bundled with the plugin.
      */
@@ -1038,6 +1058,7 @@ class Settings
             'admin_api_key' => '',
             'display_mode' => self::MODE_INLINE,
             'wasm_source' => self::WASM_BUNDLED,
+            'isolate_frame' => false,
             'fail_open' => false,
             'show_admin_notices' => true,
             'integrations' => [

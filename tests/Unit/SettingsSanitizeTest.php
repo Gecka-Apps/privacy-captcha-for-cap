@@ -73,3 +73,11 @@ it('preserves the WooCommerce master toggle too', function (): void {
     expect($saved['integrations']['woocommerce'])->toBeTrue();
     expect($saved['integrations']['woocommerce_checkout'])->toBeTrue();
 });
+
+it('shares the page with the Cap check unless isolation is ticked', function (): void {
+    $settings = Settings::get_instance();
+
+    expect($settings->sanitize([])['isolate_frame'])->toBeFalse()
+        ->and($settings->sanitize(['isolate_frame' => '1'])['isolate_frame'])->toBeTrue()
+        ->and($settings->isFrameIsolated())->toBeFalse();
+});
