@@ -2,6 +2,30 @@
 
 All notable changes to this project will be documented in this file.
 
+## [Unreleased]
+
+### Added
+
+- Cap 4 support. The bundled widget is now cap-widget 0.1.62: Cap 4 rejects older widgets on site keys that block on behavior or on automated interactions, and flags the solves it still accepts from them.
+- "Isolate the Cap check from the page" under Privacy, for sites whose Cap server is operated by a third party. Since cap-widget 0.1.59 the script the Cap server sends to tell browsers from bots runs with the rights of the page, on every protected form and on `wp-login.php`, whatever the version of the server. With this on it runs in a frame that cannot read the page. It is off by default: turn it on unless you run the Cap server yourself. Also available as the `cap_captcha_isolate_frame` filter.
+- "Widget script" under Privacy: the pages can load the widget from the Cap server's `/assets/` route instead of the bundled copy, so it is the version set on that server. "Test connection" then checks that the server serves it.
+- "Test connection" checks the secret key and reports what the Cap server answers when it refuses a key: a secret or an API key that Cap 4 no longer accepts now says so instead of "did not return a valid response".
+- "Test connection" warns about an API key that can read other site keys, about a display mode the site key cannot accept and about isolating the check of a widget that is itself loaded from the Cap server, and fails when the site key rejects an isolated check.
+- The status panel says when the Cap server no longer accepts the secret of the site key.
+- The widget's "Blocked by this page" and "Troubleshoot" labels are translatable.
+
+### Changed
+
+- "Test connection" no longer needs an API key. Without one it passes on the site key and secret alone and says that the statistics stay off.
+- "Test connection" tests the form as it stands, before it is saved.
+- "Admin API key" is now "API key". The option and the `CAP_CAPTCHA_ADMIN_API_KEY` constant keep their names.
+- The message about a solver file the Cap server does not serve names the Cap 4 dashboard setting.
+
+### Fixed
+
+- The status panel kept showing the previous site key for up to five minutes after the settings were saved.
+- The weekly upstream watch failed since the Cap server source moved from `standalone/` to `capd/`.
+
 ## [1.6.2] - 2026-10-28
 
 ### Fixed
