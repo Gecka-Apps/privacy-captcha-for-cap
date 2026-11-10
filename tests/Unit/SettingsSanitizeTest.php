@@ -81,3 +81,16 @@ it('shares the page with the Cap check unless isolation is ticked', function ():
         ->and($settings->sanitize(['isolate_frame' => '1'])['isolate_frame'])->toBeTrue()
         ->and($settings->isFrameIsolated())->toBeFalse();
 });
+
+it('previews a submitted form without touching what is saved', function (): void {
+    update_option(Settings::OPTION_KEY, ['site_key' => 'saved', 'secret_key' => 'kept']);
+    capResetSettingsSingleton();
+    $settings = Settings::get_instance();
+
+    $preview = $settings->withSubmitted(['site_key' => 'typed', 'secret_key' => 'kept', 'admin_api_key' => " id_token\n"]);
+
+    expect($preview->getSiteKey())->toBe('typed')
+        ->and($preview->getAdminApiKey())->toBe('id_token')
+        ->and($settings->getSiteKey())->toBe('saved')
+        ->and(get_option(Settings::OPTION_KEY)['site_key'])->toBe('saved');
+});

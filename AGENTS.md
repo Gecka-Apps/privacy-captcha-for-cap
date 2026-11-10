@@ -40,7 +40,7 @@ every WordPress core release, confirm the widget still renders on:
 | WooCommerce | checkout, login, registration, lost password | needs WooCommerce active |
 | Gravity Forms | field settings panel in the form editor | the integration suite covers submission flow |
 | Contact Form 7 | a form with the automatic mode on | |
-| Settings | Settings → Privacy CAPTCHA, incl. "Test connection" | reads the running config, not the form fields |
+| Settings | Settings → Privacy CAPTCHA, incl. "Test connection" | tests the form as it stands, saved or not; a wp-config constant wins over its field |
 
 Minimum config that makes the widget render — `isConfigured()` requires all three:
 
